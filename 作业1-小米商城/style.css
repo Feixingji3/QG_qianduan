@@ -190,18 +190,6 @@ nav ul li a:hover {
     background-size: cover;
 }
 
-banner::after {
-    content: "";
-    position: absolute;
-    top: 15px;
-    right: 20px;
-    width: 15px;
-    height: 15px;
-    border-right: 4px solid #fff;
-    border-bottom: 4px solid #fff;
-    transform: rotate(-45deg);
-}
-
 .banner:hover {
     cursor: pointer;
 }
@@ -213,8 +201,6 @@ banner::after {
     height: 460px;
     background: rgba(105, 101, 101, .6);
 }
-
-
 
 .list {
     margin-top: 20px;
