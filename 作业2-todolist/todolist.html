@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TodoList</title>
+    <link rel="stylesheet" href="./style.css">
+    <script src="./javascript.js"></script>
+</head>
+
+<body>
+    <div class="app">
+        <div class="top-bar">
+            <div class="time-display" id="time-display"></div>
+            <button class="lang-btn" id="lang-btn">中/英</button>
+        </div>
+
+        <div class="logo">
+            <div class="star"></div>
+            <h2 id="app-title">我的待办清单</h2>
+            <div class="star"></div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" class="search-input" id="search-input" placeholder="搜索待办标题/内容...">
+        </div>
+
+        <div class="submit">
+            <div class="write">
+                <input type="text" class="title" id="title-input" placeholder="请输入待办标题">
+                <input type="text" class="input" id="content-input" placeholder="请输入待办内容">
+            </div>
+            <button class="btn" id="add-btn">添加</button>
+        </div>
+
+        <div class="tab-group">
+            <button class="tab-btn tab-active" id="btn-todos">我的待办</button>
+            <button class="tab-btn" id="btn-trash">回收站</button>
+        </div>
+
+        <div class="func-group">
+            <button class="func-btn" id="btn-clear-data">清除数据</button>
+            <button class="func-btn" id="btn-add-completed">一键添加已完成</button>
+            <button class="func-btn" id="btn-export">导出数据</button>
+            <button class="func-btn" id="btn-import">导入数据</button>
+            <input type="file" id="import-input" accept=".json">
+        </div>
+
+        <div class="list">
+            <div class="listtop" id="list-top">待办列表</div>
+            <div class="todo-list" id="todo-list"></div>
+            <div class="bottom" id="list-bottom">底部</div>
+        </div>
+
+        <div class="tips" id="tips">操作提示</div>
+    </div>
+
+</body>
+
+</html>
