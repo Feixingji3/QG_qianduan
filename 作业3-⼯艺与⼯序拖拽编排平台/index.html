@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⼯艺与⼯序拖拽编排平台</title>
+    <link rel="stylesheet" href="./style.css">
+    <script src="./myscript.js"></script>
+</head>
+
+<body>
+    <div class="body">
+        <div class="title" id="library">
+            <div class="title-nav nav">
+                <h2 class="ku">标准工序库</h2>
+                <p>拖拽到右侧编辑区</p>
+            </div>
+        </div>
+        <div class="list">
+            <div class="list-nav nav">
+                <h2 class="biao">工艺列表</h2>
+                <button class="create box">新建工艺</button>
+            </div>
+            <div class="craft-list"></div>
+            <button class="del-current">删除当前工艺</button>
+        </div>
+        <div class="editor-area">
+            <div class="editor-area-nav nav">
+                <div class="name">工艺：<h2 class="now"></h2>
+                </div>
+                <div class="tool">
+                    <button class="del box">清空工艺</button>
+                    <button class="complete box">保存工艺</button>
+                </div>
+            </div>
+            <div class="write"></div>
+        </div>
+    </div>
+    <div class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-close">&times;</span>
+                <h3>新建工艺</h3>
+            </div>
+            <div class="modal-body">
+                <label for="craftNameInput">工艺名称：</label>
+                <input type="text" class="craftNameInput" placeholder="请输入工艺名称" autocomplete="off">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary">确定</button>
+                <button class="btn-secondary">取消</button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
