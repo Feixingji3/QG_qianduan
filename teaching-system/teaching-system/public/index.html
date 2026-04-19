@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教学管理系统</title>
+    <!-- CSS变量定义 -->
+    <link rel="stylesheet" href="css/variables.css">
+    <!-- 紫色主题变量 -->
+    <link rel="stylesheet" href="css/theme-purple.css">
+    <!-- 全局样式 -->
+    <link rel="stylesheet" href="css/global.css">
+    <!-- UI系统样式 -->
+    <link rel="stylesheet" href="css/ui-system.css">
+    <!-- 响应式样式 -->
+    <link rel="stylesheet" href="css/responsive.css">
+    <!-- 工具函数和通用组件 -->
+    <script src="js/utils/helpers.js"></script>
+    <script src="js/components/Modal.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 未登录状态 -->
+        <div id="unauthorizedView" class="unauthorized-page" style="display: none;">
+            <div class="unauthorized-content">
+                <div class="unauthorized-icon">⚠️</div>
+                <h2>未登录或登录已过期</h2>
+                <p>您需要登录后才能访问系统</p>
+                <a href="/login.html" class="btn btn-primary btn-lg">前往登录</a>
+            </div>
+        </div>
+
+        <!-- 已登录状态 -->
+        <div id="authorizedView" class="app-layout" style="display: none;">
+            <!-- 移动端遮罩 -->
+            <div class="overlay" id="sidebarOverlay" data-action="toggleSidebar"></div>
+            
+            <!-- 侧边栏 -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-logo">
+                        <div class="sidebar-logo-icon">📚</div>
+                        <span>教学管理</span>
+                    </div>
+                </div>
+                <nav class="sidebar-menu" id="sidebarMenu">
+                    <!-- 菜单项由JavaScript动态生成 -->
+                </nav>
+            </aside>
+
+            <!-- 主内容区 -->
+            <main class="main-content">
+                <!-- 顶部栏 -->
+                <header class="top-header">
+                    <div class="header-left">
+                        <button class="menu-toggle" id="menuToggle" data-action="toggleSidebar">
+                            <span>☰</span>
+                        </button>
+                        <h1 class="header-title" id="pageTitle">仪表盘</h1>
+                    </div>
+                    <div class="header-right">
+                        <div class="user-info">
+                            <span class="user-name" id="userName">加载中...</span>
+                            <span class="user-role" id="userRole">--</span>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" data-action="logout">
+                            <span>退出</span>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- 页面内容 -->
+                <div class="page-content" id="pageContent">
+                    <!-- 动态加载页面内容 -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 认证模块 -->
+    <script src="auth.js"></script>
+    <!-- API 工具模块 -->
+    <script src="js/utils/api.js"></script>
+    
+    <script>
+        //教学管理系统 - 主入口
+        
+        // 角色常量定义
+        const ROLE_DIRECTOR = 'director';
+        const ROLE_HEAD_TEACHER = 'head_teacher';
+        const ROLE_STUDENT = 'student';
+        
+        // 当前用户信息
+        let currentUser = null;
+        
+        // 全局状态：从仪表盘跳转过来要查看的通知ID
+        let pendingNoticeId = null;
+        
+        // 定时轮询器：用于实时更新未读通知数量
+        let unreadCheckTimer = null;
+        // 上次未读数量（用于检测新通知）
+        let lastUnreadCount = 0;
+
+        /**
+         * 路由守卫 - 检查登录状态
+         * 未登录则显示未授权页面，3秒后跳转登录页
+         */
+        (function routeGuard() {
+            if (!Auth.isLogin()) {
+                document.getElementById('unauthorizedView').style.display = 'flex';
+                document.getElementById('authorizedView').style.display = 'none';
+                setTimeout(() => {
+                    window.location.href = '/login.html';
+                }, 3000);
+                return false;
+            }
+            return true;
+        })();
+
+        /**
+         * 退出登录
+         * 先调用后端接口记录退出日志，再清除本地token
+         */
+        async function logout() {
+            try {
+                // 调用后端退出登录接口（记录日志）
+                await API.post('/auth/logout');
+            } catch (err) {
+                console.log('退出登录记录失败（不影响退出）:', err);
+            }
+            // 停止未读通知定时轮询
+            stopUnreadCheckTimer();
+            // 重置桌面通知标志位（下次登录可再次提醒）
+            window.dashboardNotificationShown = false;
+            // 清除本地token并跳转
+            Auth.logout();
+        }
+
+        //切换侧边栏（移动端）
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('show');
+        }
+
+        /**
+         * 切换页面
+         * @param {string} page - 页面标识
+         */
+        function switchPage(page) {
+             //防止用户通过直接修改URL或调用函数绕过菜单限制
+            const pagePermissions = {
+                // 仪表盘：所有角色可访问
+                'dashboard': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                // 班级管理：仅教务主任和班主任可访问（学生不能查看班级列表）
+                'classes': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER],
+                // 成绩管理：所有角色可访问，但数据范围不同
+                'scores': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                // 统计分析：所有角色可访问，但数据范围不同
+                'statistics': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                // 通知管理：所有角色可访问，但范围不同
+                'notices': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                // 日志管理：仅教务主任和班主任可访问（学生不能查看日志）
+                'logs': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER]
+            };
+            
+            // 检查当前用户是否有权限访问该页面
+            const allowedRoles = pagePermissions[page];
+            if (allowedRoles && !allowedRoles.includes(currentUser?.role)) {
+                // 无权限，显示提示并阻止访问
+                alert('您没有权限访问该页面');
+                console.warn(`[权限拦截] 用户${currentUser?.role}尝试访问无权限页面：${page}`);
+                return;
+            }
+            
+            // 更新菜单激活状态
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.page === page);
+            });
+            
+            // 移动端关闭侧边栏
+            if (window.innerWidth < 768) {
+                toggleSidebar();
+            }
+            
+            // 加载页面内容
+            loadPageContent(page);
+        }
+
+        /**
+         * 根据角色渲染侧边栏菜单
+         * @param {string} role - 用户角色
+         */
+        function renderSidebarMenu(role) {
+            const menu = document.getElementById('sidebarMenu');
+            
+             // 菜单配置
+            const menuConfig = [
+                { 
+                    page: 'dashboard', 
+                    icon: '📊', 
+                    label: '仪表盘', 
+                    roles: [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT] 
+                },
+                { 
+                    page: 'classes', 
+                    icon: '👥', 
+                    label: '班级管理', 
+                    // 教务主任可查看全量，班主任可查看本班
+                    roles: [ROLE_DIRECTOR, ROLE_HEAD_TEACHER] 
+                },
+                { 
+                    page: 'scores', 
+                    icon: '📝', 
+                    // 学生显示"我的成绩"，其他角色显示"成绩管理"
+                    label: role === ROLE_STUDENT ? '我的成绩' : '成绩管理', 
+                    roles: [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT] 
+                },
+                { 
+                    page: 'statistics', 
+                    icon: '📈', 
+                    // 学生显示"班级统计"，其他角色显示"统计分析"
+                    label: role === ROLE_STUDENT ? '班级统计' : '统计分析', 
+                    roles: [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT] 
+                },
+                { 
+                    page: 'notices', 
+                    icon: '📢', 
+                    // 学生显示"我的通知"，其他角色显示"班级通知"
+                    label: role === ROLE_STUDENT ? '我的通知' : '班级通知', 
+                    roles: [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                    // 学生和班主任显示未读数量徽章，教务主任不显示
+                    badge: role === ROLE_STUDENT || role === ROLE_HEAD_TEACHER ? 'unreadCount' : null
+                },
+                { 
+                    page: 'logs', 
+                    icon: '📋', 
+                    // 班主任显示"班级日志"，教务主任显示"系统日志"
+                    label: role === ROLE_DIRECTOR ? '系统日志' : '班级日志', 
+                    roles: [ROLE_DIRECTOR, ROLE_HEAD_TEACHER] 
+                }
+            ];
+            
+            // 过滤当前角色可见的菜单
+            const visibleItems = menuConfig.filter(item => item.roles.includes(role));
+            
+            // 生成菜单HTML
+            menu.innerHTML = visibleItems.map((item, index) => `
+                <div class="menu-item ${index === 0 ? 'active' : ''}" 
+                     data-action="switchPage"
+                     data-page="${item.page}">
+                    <span class="menu-icon">${item.icon}</span>
+                    <span class="menu-text">${item.label}</span>
+                    ${item.badge ? `<span class="menu-badge" id="sidebarBadge" style="display:none;">0</span>` : ''}
+                </div>
+            `).join('');
+        }
+
+        /**
+         * 加载页面内容
+         * @param {string} page - 页面标识
+         */
+        function loadPageContent(page) {
+            // 页面级权限检查（双重保护）
+            // 防止直接调用 loadPageContent 绕过 switchPage 的权限检查
+            const pagePermissions = {
+                'dashboard': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                'classes': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER],
+                'scores': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                'statistics': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                'notices': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER, ROLE_STUDENT],
+                'logs': [ROLE_DIRECTOR, ROLE_HEAD_TEACHER]
+            };
+            
+            const allowedRoles = pagePermissions[page];
+            if (allowedRoles && !allowedRoles.includes(currentUser?.role)) {
+                console.warn(`[权限拦截] 用户${currentUser?.role}尝试直接加载无权限页面：${page}`);
+                // 无权限时跳转到仪表盘
+                page = 'dashboard';
+            }
+            
+            const content = document.getElementById('pageContent');
+            const title = document.getElementById('pageTitle');
+
+            // 页面内容不由这里清空，由各页面的 init 函数自行渲染
+            // 这样可以避免页面切换时的闪烁问题
+
+            // 页面标题映射
+            const titleMap = {
+                'dashboard': '仪表盘',
+                'classes': '班级管理',
+                'scores': '成绩管理',
+                'statistics': currentUser?.role === ROLE_STUDENT ? '班级统计' : '统计分析',
+                'notices': currentUser?.role === ROLE_STUDENT ? '我的通知' : '班级通知',
+                'logs': currentUser?.role === ROLE_DIRECTOR ? '系统日志' : '班级日志'
+            };
+            title.textContent = titleMap[page] || '仪表盘';
+
+            // 根据页面加载对应模块
+            const pageLoaders = {
+                'dashboard': loadDashboardPage,
+                'classes': () => loadScript('js/pages/classes.js', () => initClassPage()),
+                'scores': () => loadScript('js/pages/scores.js', () => initScorePage()),
+                'statistics': () => loadScript('js/pages/statistics.js', () => initStatisticsPage()),
+                'notices': () => loadScript('js/pages/notices.js', async () => await initNoticePage()),
+                'logs': () => loadScript('js/pages/logs.js', () => initLogPage())
+            };
+
+            const loader = pageLoaders[page];
+            if (loader) {
+                loader();
+            } else {
+                content.innerHTML = `
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="empty-state">
+                                <div class="empty-icon">🚧</div>
+                                <div class="empty-title">页面开发中</div>
+                                <div class="empty-desc">该功能尚未实现，敬请期待</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        /**
+         * 动态加载JS文件
+         * @param {string} src - 脚本路径
+         * @param {Function} callback - 加载完成回调
+         */
+        function loadScript(src, callback) {
+            // 移除已存在的相同脚本，确保每次切换页面都重新加载
+            // 这样可以避免不同页面间函数名冲突的问题
+            const existingScript = document.querySelector(`script[src="${src}"]`);
+            if (existingScript) {
+                existingScript.remove();
+            }
+
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = async () => {
+                if (callback) {
+                    await callback();
+                }
+            };
+            script.onerror = () => {
+                console.error('加载脚本失败:', src);
+                document.getElementById('pageContent').innerHTML = `
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="empty-state">
+                                <div class="empty-icon">❌</div>
+                                <div class="empty-title">加载失败</div>
+                                <div class="empty-desc">页面脚本加载失败，请刷新重试</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+            document.body.appendChild(script);
+        }
+
+        //加载仪表盘页面
+        function loadDashboardPage() {
+            const content = document.getElementById('pageContent');
+            
+            content.innerHTML = `
+                <!-- 统计卡片 -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon purple">👥</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statClassCount">--</div>
+                            <div class="stat-label">班级总数</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue">📝</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statStudentCount">--</div>
+                            <div class="stat-label">学生总数</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">📊</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statAvgScore">--</div>
+                            <div class="stat-label">平均成绩</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">📢</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="statUnreadCount">--</div>
+                            <div class="stat-label">未读通知</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 最近通知 -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📢 最近通知</span>
+                        <button class="btn btn-primary btn-sm" data-action="switchPage" data-page="notices">查看全部</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="notice-preview-list" id="recentNoticesBody">
+                            <div class="loading-skeleton" style="height: 150px;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 加载统计数据和最近通知
+            loadDashboardStats();
+            loadRecentNotices();
+        }
+
+        /**
+         * 加载侧边栏未读数量徽章
+         * 学生和班主任在登录后即显示未读通知数量
+         */
+        async function loadSidebarUnreadCount() {
+            try {
+                const data = await API.get('/notices/unread-count');
+                const count = data.data?.count || 0;
+                
+                // 更新侧边栏徽章
+                const badge = document.getElementById('sidebarBadge');
+                if (badge) {
+                    badge.textContent = count;
+                    badge.style.display = count > 0 ? 'flex' : 'none';
+                }
+                
+                return count;
+            } catch (error) {
+                console.error('加载侧边栏未读数量失败:', error);
+                return 0;
+            }
+        }
+        
+        /**
+         * 启动未读通知定时轮询
+         * 每隔30秒检查一次新通知，实现实时刷新效果
+         */
+        function startUnreadCheckTimer() {
+            // 先清除已有的定时器
+            if (unreadCheckTimer) {
+                clearInterval(unreadCheckTimer);
+            }
+            
+            // 立即执行一次，获取初始值
+            loadSidebarUnreadCount().then(count => {
+                lastUnreadCount = count;
+            });
+            
+            // 启动定时器：每30秒检查一次
+            unreadCheckTimer = setInterval(async () => {
+                const currentCount = await loadSidebarUnreadCount();
+                
+                // 检测到新通知（数量增加）
+                if (currentCount > lastUnreadCount && NotificationManager.isReady()) {
+                    const newCount = currentCount - lastUnreadCount;
+                    NotificationManager.show({
+                        title: '教学管理系统',
+                        body: `您收到 ${newCount} 条新通知`,
+                        tag: 'new-notice-alert',
+                        onClick: () => {
+                            window.focus();
+                            switchPage('notices');
+                        }
+                    });
+                }
+                
+                // 更新上次数量
+                lastUnreadCount = currentCount;
+            }, 30000); // 30秒 = 30000毫秒
+        }
+        
+        //停止未读通知定时轮询
+        function stopUnreadCheckTimer() {
+            if (unreadCheckTimer) {
+                clearInterval(unreadCheckTimer);
+                unreadCheckTimer = null;
+            }
+            lastUnreadCount = 0;
+        }
+
+        //加载仪表盘统计数据
+        async function loadDashboardStats() {
+            try {
+                // 分别获取统计数据，一个失败不影响其他
+                const results = await Promise.allSettled([
+                    API.get('/dashboard/classes/count'),
+                    API.get('/dashboard/students/count'),
+                    API.get('/dashboard/scores/average'),
+                    API.get('/dashboard/notices/unread-count')
+                ]);
+
+                const [classResult, studentResult, scoreResult, noticeResult] = results;
+
+                // 更新DOM，处理成功和失败的情况
+                if (classResult.status === 'fulfilled' && classResult.value.code === 200) {
+                    document.getElementById('statClassCount').textContent = classResult.value.data?.count ?? 0;
+                } else {
+                    document.getElementById('statClassCount').textContent = '0';
+                    if (classResult.status === 'rejected') console.error('获取班级数失败:', classResult.reason);
+                }
+
+                if (studentResult.status === 'fulfilled' && studentResult.value.code === 200) {
+                    document.getElementById('statStudentCount').textContent = studentResult.value.data?.count ?? 0;
+                } else {
+                    document.getElementById('statStudentCount').textContent = '0';
+                    if (studentResult.status === 'rejected') console.error('获取学生数失败:', studentResult.reason);
+                }
+
+                if (scoreResult.status === 'fulfilled' && scoreResult.value.code === 200) {
+                    const avg = scoreResult.value.data?.average;
+                    document.getElementById('statAvgScore').textContent = avg !== undefined ? avg : '--';
+                } else {
+                    document.getElementById('statAvgScore').textContent = '--';
+                    if (scoreResult.status === 'rejected') console.error('获取平均成绩失败:', scoreResult.reason);
+                }
+
+                let unreadCount = 0;
+                if (noticeResult.status === 'fulfilled' && noticeResult.value.code === 200) {
+                    unreadCount = noticeResult.value.data?.count ?? 0;
+                    document.getElementById('statUnreadCount').textContent = unreadCount;
+                    
+                    // 有未读通知且权限已获取时，显示桌面提醒
+                    if (unreadCount > 0 && NotificationManager.isReady() && !window.dashboardNotificationShown) {
+                        NotificationManager.show({
+                            title: '教学管理系统',
+                            body: `您有 ${unreadCount} 条未读通知，点击查看`,
+                            tag: 'dashboard-unread-notice',
+                            onClick: () => {
+                                window.focus();
+                                switchPage('notices');
+                            }
+                        });
+                        window.dashboardNotificationShown = true;
+                    }
+                } else {
+                    document.getElementById('statUnreadCount').textContent = '0';
+                    if (noticeResult.status === 'rejected') console.error('获取未读通知数失败:', noticeResult.reason);
+                }
+
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+            }
+        }
+
+        /**
+         * 加载最近通知列表
+         * 使用 NotificationCard 组件渲染
+         */
+        async function loadRecentNotices() {
+            try {
+                const data = await API.get('/dashboard/notices/recent');
+                const notices = data.data || [];
+                const container = document.getElementById('recentNoticesBody');
+                
+                if (!container) return;
+                
+                // 清空容器
+                container.innerHTML = '';
+                
+                if (notices.length === 0) {
+                    container.innerHTML = `
+                        <div class="notice-empty">
+                            <span class="notice-empty-icon">📭</span>
+                            <span class="notice-empty-text">暂无通知</span>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 使用 NotificationCard 组件渲染每个通知
+                notices.forEach(notice => {
+                    const card = NotificationCard({
+                        id: notice.id,
+                        title: notice.title,
+                        className: notice.className,
+                        time: formatRelativeTime(notice.createdAt),
+                        isRead: false,
+                        onClick: (id) => {
+                            pendingNoticeId = id;
+                            switchPage('notices');
+                        }
+                    });
+                    container.appendChild(card);
+                });
+                
+            } catch (error) {
+                console.error('加载最近通知失败:', error);
+                const container = document.getElementById('recentNoticesBody');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="notice-empty">
+                            <span class="notice-empty-icon">⚠️</span>
+                            <span class="notice-empty-text">加载失败，请稍后重试</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        //格式化相对时间
+        function formatRelativeTime(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            
+            const minute = 60 * 1000;
+            const hour = 60 * minute;
+            const day = 24 * hour;
+            
+            if (diff < minute) {
+                return '刚刚';
+            } else if (diff < hour) {
+                return Math.floor(diff / minute) + '分钟前';
+            } else if (diff < day) {
+                return Math.floor(diff / hour) + '小时前';
+            } else if (diff < 2 * day) {
+                return '昨天';
+            } else {
+                return Math.floor(diff / day) + '天前';
+            }
+        }
+
+        //加载统计分析页面
+        function loadStatisticsPage() {
+            const content = document.getElementById('pageContent');
+            content.innerHTML = `
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">成绩统计</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <div class="empty-icon">📊</div>
+                            <div class="empty-title">统计功能开发中</div>
+                            <div class="empty-desc">该功能将在后续版本上线</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        //事件委托绑定 - 统一处理全局点击事件
+        function bindGlobalEventDelegation() {
+            document.addEventListener('click', (e) => {
+                // 查找最近的带有 data-action 的元素
+                const actionEl = e.target.closest('[data-action]');
+                if (!actionEl) return;
+                
+                const action = actionEl.dataset.action;
+                
+                switch (action) {
+                    case 'toggleSidebar':
+                        toggleSidebar();
+                        break;
+                    case 'logout':
+                        logout();
+                        break;
+                    case 'switchPage':
+                        const page = actionEl.dataset.page;
+                        if (page) switchPage(page);
+                        break;
+                    case 'viewNoticeFromDashboard':
+                        // 从仪表盘点击通知，保存通知ID并跳转到通知页面
+                        const noticeId = actionEl.dataset.noticeId;
+                        if (noticeId) {
+                            pendingNoticeId = parseInt(noticeId, 10);
+                            switchPage('notices');
+                        }
+                        break;
+                }
+            });
+        }
+
+        //页面初始化
+        async function init() {
+            // 绑定全局事件委托
+            bindGlobalEventDelegation();
+            
+            if (!Auth.isLogin()) return;
+
+            document.getElementById('unauthorizedView').style.display = 'none';
+            document.getElementById('authorizedView').style.display = 'flex';
+
+            // 获取当前用户信息
+            try {
+                const data = await API.get('/auth/me');
+                
+                if (data.data) {
+                    currentUser = data.data;
+                    
+                    // 显示用户信息
+                    document.getElementById('userName').textContent = currentUser.realName || currentUser.username;
+                    
+                    // 角色显示映射
+                    const roleDisplayMap = {
+                        [ROLE_DIRECTOR]: '教务主任',
+                        [ROLE_HEAD_TEACHER]: '班主任',
+                        [ROLE_STUDENT]: '学生'
+                    };
+                    document.getElementById('userRole').textContent = roleDisplayMap[currentUser.role] || currentUser.role;
+                    
+                    // 根据角色渲染侧边栏
+                    renderSidebarMenu(currentUser.role);
+                    
+                    // 学生和班主任加载侧边栏未读数量徽章并启动定时轮询
+                    if (currentUser.role === ROLE_STUDENT || currentUser.role === ROLE_HEAD_TEACHER) {
+                        loadSidebarUnreadCount();
+                        // 启动定时轮询，实时更新未读通知数量
+                        startUnreadCheckTimer();
+                    }
+                    
+                    // 初始化桌面通知权限（学生/班主任需要接收通知提醒）
+                    if (currentUser.role === ROLE_STUDENT || currentUser.role === ROLE_HEAD_TEACHER) {
+                        NotificationManager.init().then(granted => {
+                            if (granted) {
+                                console.log('桌面通知权限已获取');
+                            }
+                        });
+                    }
+                    
+                    // 加载默认页面
+                    loadPageContent('dashboard');
+                }
+            } catch (error) {
+                console.error('获取用户信息失败:', error);
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.onload = init;
+    </script>
+    <!-- 通知卡片组件 -->
+    <script src="js/components/NotificationCard.js"></script>
+</body>
+</html>

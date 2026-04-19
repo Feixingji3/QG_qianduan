@@ -1,0 +1,230 @@
+/**
+ * 响应式样式文件
+ * 功能：适配大屏、中屏、小屏三种断点
+ * 技术栈：原生CSS媒体查询，无框架
+ */
+
+/* ========== 大屏样式 (≥1200px) ========== */
+@media screen and (min-width: 1200px) {
+    /* 侧边栏保持展开 */
+    .sidebar {
+        width: var(--sidebar-width);
+    }
+    
+    .main-content {
+        margin-left: var(--sidebar-width);
+    }
+    
+    /* 统计卡片4列布局 */
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    /* 通知页面左右分栏 */
+    .notice-layout {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: var(--spacing-lg);
+    }
+    
+    /* 表格容器 */
+    .table-container {
+        overflow-x: auto;
+    }
+}
+
+/* ========== 中屏样式 (768px-1199px) ========== */
+@media screen and (min-width: 768px) and (max-width: 1199px) {
+    /* 侧边栏保持展开但宽度减小 */
+    .sidebar {
+        width: 180px;
+    }
+    
+    .main-content {
+        margin-left: 180px;
+    }
+    
+    /* 统计卡片2列布局 */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    /* 通知页面上下布局 */
+    .notice-layout {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-lg);
+    }
+    
+    /* 筛选条件折叠 */
+    .filter-bar {
+        flex-wrap: wrap;
+    }
+    
+    .filter-item {
+        flex: 1;
+        min-width: 200px;
+    }
+}
+
+/* ========== 小屏样式 (<768px) ========== */
+@media screen and (max-width: 767px) {
+    /* 侧边栏隐藏，显示汉堡菜单 */
+    .sidebar {
+        width: 260px;
+        transform: translateX(-100%);
+        transition: transform var(--transition-base);
+    }
+    
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    /* 显示菜单按钮 */
+    .menu-toggle {
+        display: flex;
+    }
+    
+    /* 统计卡片单列布局 */
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    /* 页面内容减少内边距 */
+    .page-content {
+        padding: var(--spacing-md);
+    }
+    
+    /* 卡片减少内边距 */
+    .card-header,
+    .card-body,
+    .card-footer {
+        padding: var(--spacing-md);
+    }
+    
+    /* 表格横向滚动 */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .data-table {
+        min-width: 600px;
+    }
+    
+    /* 通知页面全屏列表 */
+    .notice-layout {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+    
+    /* 顶部栏调整 */
+    .top-header {
+        padding: 0 var(--spacing-md);
+    }
+    
+    .header-title {
+        font-size: var(--font-size-md);
+    }
+    
+    .user-name {
+        display: none;
+    }
+    
+    /* 表单行垂直排列 */
+    .form-row {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .form-row .form-group {
+        min-width: 100%;
+    }
+    
+    /* 按钮组垂直排列 */
+    .btn-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        width: 100%;
+    }
+    
+    /* 分页器简化 */
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    /* 统计卡片横向布局 */
+    .stat-card {
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: var(--font-size-lg);
+    }
+    
+    .stat-value {
+        font-size: var(--font-size-xl);
+    }
+}
+
+/* ========== 超小屏样式 (<480px) ========== */
+@media screen and (max-width: 479px) {
+    /* 进一步减少间距 */
+    .page-content {
+        padding: var(--spacing-sm);
+    }
+    
+    /* 卡片圆角减小 */
+    .card {
+        border-radius: 8px;
+    }
+    
+    /* 隐藏角色标签 */
+    .user-role {
+        display: none;
+    }
+    
+    /* 表格字体减小 */
+    .data-table th,
+    .data-table td {
+        padding: 8px var(--spacing-sm);
+        font-size: var(--font-size-xs);
+    }
+    
+    /* 按钮全宽 */
+    .card-header .btn {
+        padding: 6px 10px;
+        font-size: var(--font-size-xs);
+    }
+}
+
+/* ========== 打印样式 ========== */
+@media print {
+    .sidebar,
+    .top-header,
+    .btn,
+    .pagination {
+        display: none !important;
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid var(--border-color);
+    }
+}

@@ -161,6 +161,31 @@ nav ul li a:hover {
     border-color: #ff6700;
 }
 
+.result-list {
+    z-index: 10000;
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 50px;
+    width: 250px;
+    border: 1px solid #ff6700;
+    border-top: none;
+    background: #ffffff;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    padding: 8px 0;
+    box-sizing: border-box;
+}
+
+.result-list a {
+    display: block;
+    padding: 0 15px;
+    font-size: 12px;
+    line-height: 28px;
+    color: #424242;
+    text-decoration: none;
+}
+
 #submit {
     position: relative;
     left: -4px;
@@ -182,6 +207,7 @@ nav ul li a:hover {
 }
 
 .banner {
+    z-index: 9997;
     position: relative;
     margin: 0 auto;
     width: 1226px;
@@ -293,6 +319,11 @@ nav ul li a:hover {
     border: 2px solid #b2b4b7;
     border-radius: 50%;
     background-color: #7f746a;
+}
+
+.under a.active {
+    background-color: #c7cacc;
+    border: 2px solid#959799;
 }
 
 .under a:hover {

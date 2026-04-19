@@ -1,0 +1,97 @@
+/**
+ * CSS变量主题文件
+ * 
+ * 设计思路：
+ * 1. 使用CSS变量统一管理颜色、尺寸等样式属性
+ * 2. 便于主题切换和全局样式调整
+ * 3. 提高代码可维护性
+ */
+
+:root {
+    /* ========== 主题色 ========== */
+    --primary-color: #1890ff;
+    --primary-hover: #40a9ff;
+    --primary-active: #096dd9;
+    --primary-light: #e6f7ff;
+    
+    /* ========== 功能色 ========== */
+    --success-color: #52c41a;
+    --success-light: #f6ffed;
+    --warning-color: #faad14;
+    --warning-light: #fffbe6;
+    --error-color: #ff4d4f;
+    --error-light: #fff2f0;
+    --info-color: #1890ff;
+    --info-light: #e6f7ff;
+    
+    /* ========== 中性色 ========== */
+    --text-primary: #262626;
+    --text-secondary: #595959;
+    --text-tertiary: #8c8c8c;
+    --text-disabled: #bfbfbf;
+    --border-color: #d9d9d9;
+    --border-light: #f0f0f0;
+    --bg-color: #f5f5f5;
+    --bg-white: #ffffff;
+    --bg-sidebar: #001529;
+    
+    /* ========== 布局尺寸 ========== */
+    --sidebar-width: 200px;
+    --sidebar-width-mobile: 0px;
+    --header-height: 64px;
+    --content-padding: 24px;
+    --card-padding: 24px;
+    
+    /* ========== 组件尺寸 ========== */
+    --btn-height: 32px;
+    --input-height: 32px;
+    --table-row-height: 48px;
+    --border-radius: 4px;
+    --border-radius-lg: 8px;
+    
+    /* ========== 字体 ========== */
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-base: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 20px;
+    --font-size-xxl: 24px;
+    
+    /* ========== 阴影 ========== */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    
+    /* ========== 过渡动画 ========== */
+    --transition-fast: 0.2s ease;
+    --transition-base: 0.3s ease;
+    --transition-slow: 0.4s ease;
+}
+
+/* ========== 响应式断点变量 ========== */
+/* 大屏 >=1200px */
+@media screen and (min-width: 1200px) {
+    :root {
+        --container-max-width: 1400px;
+        --grid-columns: 12;
+    }
+}
+
+/* 中屏 768px-1199px */
+@media screen and (min-width: 768px) and (max-width: 1199px) {
+    :root {
+        --sidebar-width: 180px;
+        --content-padding: 16px;
+        --card-padding: 20px;
+    }
+}
+
+/* 小屏 <768px */
+@media screen and (max-width: 767px) {
+    :root {
+        --sidebar-width: 0px;
+        --header-height: 56px;
+        --content-padding: 12px;
+        --card-padding: 16px;
+    }
+}
