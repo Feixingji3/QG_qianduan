@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>小米商城</title>
     <link rel="stylesheet" href="./style.css">
+    <script src="./myscript.js"></script>
 </head>
 
 <body>
@@ -53,7 +54,16 @@
             <li><a href="#">社区</a></li>
         </ul>
         <div class="search">
-            <input type="text" id="search" name="search" value="手机">
+            <input type="text" id="search" name="search" placeholder="手机">
+            <ul class="result-list">
+                <li><a href="#">全部商品</a></li>
+                <li><a href="#">小米11</a></li>
+                <li><a href="#">小米10S</a></li>
+                <li><a href="#">小米笔记本</a></li>
+                <li><a href="#">小米手机</a></li>
+                <li><a href="#">黑鲨4</a></li>
+                <li><a href="#">空调</a></li>
+            </ul>
             <input type="submit" id="submit" value="&#xe986;">
         </div>
     </nav>
@@ -74,8 +84,8 @@
         </div>
         <a class="carousel-arrow prev" href="#"></a>
         <a class="carousel-arrow next" href="#"></a>
-        <div class="under"><a href="#"></a><a href="#"></a><a href="#"></a><a href="#"></a><a href="#"></a><a
-                href="#"></a></div>
+        <div class="under"><a href="#" class="active"></a><a href="#"></a><a href="#"></a><a href="#"></a><a
+                href="#"></a><a href="#"></a></div>
     </div>
     <div class="span1">
         <ul>
@@ -95,6 +105,7 @@
         <a class="tu" href="#"><img src="image/8aa523aada018ed7e291b8d5c99d5cc7.png"></a>
         <a class="tu" href="#"><img src="image/ce384835b97655abd1448f3e45eb48ff.png"></a>
     </div>
+
 </body>
 
 </html>
